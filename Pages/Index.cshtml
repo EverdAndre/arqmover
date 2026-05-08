@@ -1,10 +1,152 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "ArqMover";
 }
+<meta charset="utf-8" />
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container mt-5">
+    <div class="card shadow-lg p-4">
+
+        <h1 class="mb-4 text-center">ArqMover</h1>
+
+        <div class="mb-3">
+            <label class="form-label">Pasta de Origem</label>
+            <input id="origem" type="text" class="form-control" placeholder="Ex: D:\" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Pasta de Destino</label>
+            <input id="destino" type="text" class="form-control" placeholder="Ex: E:\Backup_D" />
+        </div>
+
+        <div class="d-grid mb-4">
+            <button id="btnIniciar" class="btn btn-primary btn-lg">
+                Iniciar Backup
+            </button>
+        </div>
+        <div class="d-grid mt-2">
+            <button id="btnEncerrar" class="btn btn-danger">
+                Encerrar Aplicação
+            </button>
+        </div>
+
+        <hr />
+
+        <h5>Status</h5>
+
+        <div class="progress mb-3" style="height: 30px;">
+            <div id="barraProgresso" class="progress-bar progress-bar-striped" role="progressbar" style="width: 0%">
+                0%
+            </div>
+        </div>
+
+        <label class="form-label fw-bold">Arquivo Atual</label>
+        <div id="arquivoAtual" class="alert alert-secondary">-</div>
+
+        <label class="form-label fw-bold">Mensagem</label>
+        <div id="mensagemStatus" class="alert alert-info">Aguardando</div>
+
+        <label class="form-label fw-bold">Log</label>
+        <textarea id="logBackup" class="form-control" rows="12" readonly></textarea>
+
+    </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+
+<script>
+    const conexao = new signalR.HubConnectionBuilder()
+        .withUrl("/backupHub")
+        .build();
+
+    const origem = document.getElementById("origem");
+    const destino = document.getElementById("destino");
+    const btnIniciar = document.getElementById("btnIniciar");
+    const barraProgresso = document.getElementById("barraProgresso");
+    const arquivoAtual = document.getElementById("arquivoAtual");
+    const mensagemStatus = document.getElementById("mensagemStatus");
+    const logBackup = document.getElementById("logBackup");
+
+    conexao.on("AtualizarStatus", function (dados) {
+        barraProgresso.style.width = dados.progresso + "%";
+        barraProgresso.textContent = dados.progresso + "%";
+
+        arquivoAtual.textContent = dados.arquivo;
+        mensagemStatus.textContent = dados.status;
+
+        logBackup.value += dados.status + " | " + dados.arquivo + "\n";
+        logBackup.scrollTop = logBackup.scrollHeight;
+
+        if (dados.concluido) {
+            btnIniciar.disabled = false;
+            btnIniciar.textContent = "Iniciar Backup";
+            barraProgresso.classList.remove("progress-bar-animated");
+        }
+    });
+
+    conexao.start().then(function () {
+        mensagemStatus.textContent = "Sistema pronto.";
+    }).catch(function (erro) {
+        mensagemStatus.textContent = "Erro ao conectar ao serviço de backup.";
+        logBackup.value += erro + "\n";
+    });
+
+    function encerrarAplicacao() {
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon("/encerrar");
+            return;
+        }
+
+        fetch("/encerrar", {
+            method: "POST",
+            keepalive: true
+        });
+    }
+
+    btnIniciar.addEventListener("click", function () {
+        if (!origem.value.trim()) {
+            alert("Informe a pasta de origem.");
+            return;
+        }
+
+        if (!destino.value.trim()) {
+            alert("Informe a pasta de destino.");
+            return;
+        }
+
+        btnIniciar.disabled = true;
+        btnIniciar.textContent = "Executando...";
+
+        barraProgresso.style.width = "0%";
+        barraProgresso.textContent = "0%";
+        barraProgresso.classList.add("progress-bar-animated");
+
+        arquivoAtual.textContent = "-";
+        mensagemStatus.textContent = "Iniciando...";
+        logBackup.value = "";
+
+        conexao.invoke("IniciarBackup", origem.value, destino.value)
+            .catch(function (erro) {
+                btnIniciar.disabled = false;
+                btnIniciar.textContent = "Iniciar Backup";
+                barraProgresso.classList.remove("progress-bar-animated");
+                mensagemStatus.textContent = "Erro ao iniciar backup.";
+                logBackup.value += erro + "\n";
+            });
+    });
+
+    document.getElementById("btnEncerrar").addEventListener("click", async function () {
+        if (!confirm("Deseja encerrar o ArqMover?")) {
+            return;
+        }
+
+        encerrarAplicacao();
+
+        window.close();
+    });
+
+    window.addEventListener("pagehide", function () {
+        encerrarAplicacao();
+    });
+</script>
