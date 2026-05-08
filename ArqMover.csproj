@@ -4,6 +4,21 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Gera executável sem janela de console -->
+    <OutputType>WinExe</OutputType>
+
+    <!-- Publicação em arquivo único -->
+    <PublishSingleFile>true</PublishSingleFile>
+
+    <!-- Inclui o runtime do .NET no executável -->
+    <SelfContained>true</SelfContained>
+
+    <!-- Plataforma alvo -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
+    <!-- Ícone do executável -->
+    <ApplicationIcon>wwwroot\favicon.ico</ApplicationIcon>
   </PropertyGroup>
 
 </Project>
